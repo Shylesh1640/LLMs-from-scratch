@@ -31,8 +31,8 @@ def download_and_load_gpt2(model_size, models_dir):
     # Download files
     os.makedirs(model_dir, exist_ok=True)
     for filename in filenames:
-        file_url = os.path.join(base_url, model_size, filename)
-        backup_url = os.path.join(backup_base_url, model_size, filename)
+        file_url = f"{base_url}/{model_size}/{filename}"
+        backup_url = f"{backup_base_url}/{model_size}/{filename}"
         file_path = os.path.join(model_dir, filename)
         download_file(file_url, file_path, backup_url)
 
@@ -60,12 +60,22 @@ def download_file(url, destination, backup_url=None):
 
         block_size = 1024  # 1 KB
         desc = os.path.basename(download_url)
-        with tqdm(total=file_size, unit="iB", unit_scale=True, desc=desc) as progress_bar:
-            with open(destination, "wb") as file:
-                for chunk in response.iter_content(chunk_size=block_size):
-                    if chunk:
-                        file.write(chunk)
-                        progress_bar.update(len(chunk))
+        temp_destination = f"{destination}.part"
+        try:
+            with tqdm(total=file_size, unit="iB", unit_scale=True, desc=desc) as progress_bar:
+                with open(temp_destination, "wb") as file:
+                    for chunk in response.iter_content(chunk_size=block_size):
+                        if chunk:
+                            file.write(chunk)
+                            progress_bar.update(len(chunk))
+            if file_size and os.path.getsize(temp_destination) != file_size:
+                raise requests.exceptions.RequestException(
+                    f"Incomplete download for {destination}"
+                )
+            os.replace(temp_destination, destination)
+        finally:
+            if os.path.exists(temp_destination):
+                os.remove(temp_destination)
         return True
 
     try:
